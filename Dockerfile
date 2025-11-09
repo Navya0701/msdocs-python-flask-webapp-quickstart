@@ -13,4 +13,5 @@ COPY . .
 
 EXPOSE 8080
 
-ENTRYPOINT ["gunicorn", "-b", ":8080", "app:app"]
+ENTRYPOINT ["python", "app.py"]
+
