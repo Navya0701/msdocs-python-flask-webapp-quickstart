@@ -12,4 +12,4 @@ COPY . .
 
 EXPOSE 50505
 
-ENTRYPOINT ["gunicorn", "app:app"]
+ENTRYPOINT ["gunicorn", "-b", ":8080", "app:app"]
