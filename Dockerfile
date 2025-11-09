@@ -9,11 +9,11 @@ WORKDIR /code
 COPY requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the app
+# Copy all project files
 COPY . .
 
-# Cloud Run listens on port 8080
+# ✅ Cloud Run expects the container to listen on port 8080
 EXPOSE 8080
 
-# Start the Flask app using Gunicorn, binding to port 8080
+# ✅ Start Flask app via Gunicorn on port 8080
 ENTRYPOINT ["gunicorn", "-b", ":8080", "app:app"]
