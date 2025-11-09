@@ -1,2 +1,3 @@
-Flask==2.0.2
+Flask==2.3.2
 gunicorn
+Werkzeug==3.0.3
