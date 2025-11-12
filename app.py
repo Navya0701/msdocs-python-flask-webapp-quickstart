@@ -1,6 +1,6 @@
 import os
 import traceback
-import requests  # ✅ Added missing import
+import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
@@ -45,8 +45,8 @@ def chat():
     print(f"📩 Received message: {message}")
 
     try:
-        # ✅ Call the new external API instead of local inference
-        api_url = f"https://dmigcoresvc.azurewebsites.net/api/v1/testq?question={message}"
+        # ✅ Updated: Use new Azure API endpoint
+        api_url = f"https://dmiqcoresvc.azurewebsites.net/api/v1/testq?question={message}"
         print(f"🌐 Calling external API: {api_url}")
 
         external_response = requests.get(api_url)
@@ -58,9 +58,13 @@ def chat():
                 "details": external_response.text
             }), 500
 
-        api_data = external_response.json()
-        print("✅ API Response:", api_data)
+        # ✅ Safe JSON parsing (in case Azure returns plain text)
+        try:
+            api_data = external_response.json()
+        except Exception:
+            api_data = {"answer": external_response.text}
 
+        print("✅ Azure API Response:", api_data)
         return jsonify(api_data)
 
     except Exception as e:
@@ -75,7 +79,7 @@ def chat():
 def serialize(result):
     """
     Safely convert inference output into a JSON serializable dict.
-    (Kept in case you switch back to local inference later)
+    (Kept for potential future local inference use)
     """
     try:
         if isinstance(result, dict):
