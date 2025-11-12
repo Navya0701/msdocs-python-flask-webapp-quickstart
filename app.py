@@ -6,27 +6,36 @@ from reference.runinference2 import Inference
 
 app = Flask(__name__)
 
-# Configure CORS to allow frontend access (adjust this if needed)
+# -----------------------------------------------
+# ✅ Configure CORS (allow frontend to access backend)
+# -----------------------------------------------
 allowed_origins = os.getenv(
     "ALLOWED_ORIGINS",
     "https://black-cliff-051a7af1e.4.azurestaticapps.net"
 ).split(",")
+
 CORS(
     app,
     resources={r"/chat": {"origins": allowed_origins}},
     supports_credentials=True
 )
 
-# Path to vector store
+# Path to vector store (change if needed)
 vecstore_path = '/home/filesharemount'
 
 
+# -----------------------------------------------
+# ✅ Root Route — sanity check
+# -----------------------------------------------
 @app.route('/')
 def main_page():
     """Basic welcome route"""
     return 'Hello there! Welcome to MedCopilot — your medical guidelines assistant!'
 
 
+# -----------------------------------------------
+# ✅ Chat Route — handles AI chat requests
+# -----------------------------------------------
 @app.route('/chat', methods=['POST', 'OPTIONS'])
 def chat():
     """Main API endpoint to handle chat messages"""
@@ -45,10 +54,15 @@ def chat():
     print(f"📩 Received message: {message}")
 
     try:
+        # Run the inference model
         inference = Inference(storeLocation=vecstore_path)
         response = inference.run_inference(message)
-        print("✅ DEBUG: Raw response from Inference:", response)
 
+        # Debugging logs to help trace response format
+        print(f"✅ DEBUG: Raw response type: {type(response)}")
+        print(f"✅ DEBUG: Raw response content: {response}")
+
+        # Serialize safely before returning
         serialized = serialize(response)
         print("✅ DEBUG: Serialized response:", serialized)
 
@@ -65,44 +79,42 @@ def chat():
         return jsonify(error), 500
 
 
+# -----------------------------------------------
+# ✅ Safe Serializer — handles any response format
+# -----------------------------------------------
 def serialize(result):
     """
-    Safely convert inference output into a JSON serializable dict.
-    Handles cases where output might not contain expected fields.
+    Safely convert inference output into a JSON-serializable dict.
+    Handles string, dict, or unexpected data gracefully.
     """
     try:
-        # If the result is already a dict with the expected keys
-        if isinstance(result, dict):
-            input_text = result.get('input', "")
-            answer = result.get('answer', str(result))
-            context_items = result.get('context', [])
-
-            context_list = []
-            for item in context_items:
-                # Handle structured context items gracefully
-                context_dict = {
-                    "metadata": getattr(item, "metadata", {}),
-                    "page_content": getattr(item, "page_content", str(item))
-                }
-                context_list.append(context_dict)
-
-            return {
-                "input": input_text,
-                "answer": answer,
-                "context": context_list
-            }
-
-        # If result is just a string (LLM answer)
-        elif isinstance(result, str):
-            return {"input": "", "answer": result, "context": []}
-
-        # Unknown type
-        else:
+        # ✅ Ensure we handle string or other types safely
+        if not isinstance(result, dict):
+            print("⚠️ Result is not a dict. Converting to string.")
             return {
                 "input": "",
                 "answer": str(result),
                 "context": []
             }
+
+        # Extract expected fields safely
+        input_text = result.get('input', "")
+        answer = result.get('answer', str(result))
+        context_items = result.get('context', [])
+
+        context_list = []
+        for item in context_items:
+            context_dict = {
+                "metadata": getattr(item, "metadata", {}),
+                "page_content": getattr(item, "page_content", str(item))
+            }
+            context_list.append(context_dict)
+
+        return {
+            "input": input_text,
+            "answer": answer,
+            "context": context_list
+        }
 
     except Exception as e:
         print("⚠️ Error during serialization:", e)
@@ -113,6 +125,9 @@ def serialize(result):
         }
 
 
+# -----------------------------------------------
+# ✅ App Entry Point
+# -----------------------------------------------
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port)
