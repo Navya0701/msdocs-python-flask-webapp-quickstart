@@ -1,8 +1,8 @@
 import os
 import traceback
+import requests  # ✅ Added missing import
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from reference.runinference2 import Inference
 
 app = Flask(__name__)
 
@@ -17,7 +17,7 @@ CORS(
     supports_credentials=True
 )
 
-# Path to vector store
+# Path to vector store (kept for reference)
 vecstore_path = '/home/filesharemount'
 
 
@@ -45,33 +45,39 @@ def chat():
     print(f"📩 Received message: {message}")
 
     try:
-        inference = Inference(storeLocation=vecstore_path)
-        response = inference.run_inference(message)
-        print("✅ DEBUG: Raw response from Inference:", response)
+        # ✅ Call the new external API instead of local inference
+        api_url = f"https://dmigcoresvc.azurewebsites.net/api/v1/testq?question={message}"
+        print(f"🌐 Calling external API: {api_url}")
 
-        serialized = serialize(response)
-        print("✅ DEBUG: Serialized response:", serialized)
+        external_response = requests.get(api_url)
 
-        return jsonify(serialized)
+        if external_response.status_code != 200:
+            print(f"⚠️ External API returned {external_response.status_code}")
+            return jsonify({
+                "error": f"External API returned status {external_response.status_code}",
+                "details": external_response.text
+            }), 500
+
+        api_data = external_response.json()
+        print("✅ API Response:", api_data)
+
+        return jsonify(api_data)
 
     except Exception as e:
         print("❌ ERROR in /chat handler:")
         print(traceback.format_exc())
-
-        error = {
+        return jsonify({
             "error": "An error occurred while processing your request.",
             "details": str(e)
-        }
-        return jsonify(error), 500
+        }), 500
 
 
 def serialize(result):
     """
     Safely convert inference output into a JSON serializable dict.
-    Handles cases where output might not contain expected fields.
+    (Kept in case you switch back to local inference later)
     """
     try:
-        # If the result is already a dict with the expected keys
         if isinstance(result, dict):
             input_text = result.get('input', "")
             answer = result.get('answer', str(result))
@@ -79,7 +85,6 @@ def serialize(result):
 
             context_list = []
             for item in context_items:
-                # Handle structured context items gracefully
                 context_dict = {
                     "metadata": getattr(item, "metadata", {}),
                     "page_content": getattr(item, "page_content", str(item))
@@ -92,11 +97,9 @@ def serialize(result):
                 "context": context_list
             }
 
-        # If result is just a string (LLM answer)
         elif isinstance(result, str):
             return {"input": "", "answer": result, "context": []}
 
-        # Unknown type
         else:
             return {
                 "input": "",
